@@ -1,22 +1,34 @@
 /atom/movable/screen/robot
 	icon = 'icons/hud/screen_cyborg.dmi'
+	mouse_over_pointer = MOUSE_HAND_POINTER
 
 /atom/movable/screen/robot/module
 	name = "cyborg module"
 	icon_state = "nomod"
 
-/atom/movable/screen/robot/Click()
+/atom/movable/screen/robot/Click(location, control, params)
 	if(isobserver(usr))
-		return 1
+		return TRUE
 
-/atom/movable/screen/robot/module/Click()
-	if(..())
+/atom/movable/screen/robot/module/Click(location, control, params)
+	. = ..()
+	var/mob/living/silicon/robot/robot_owner = hud.mymob
+	if(robot_owner.model.type == /obj/item/robot_model)
+		if(.)
+			return
+		robot_owner.pick_model()
 		return
-	var/mob/living/silicon/robot/R = usr
-	if(R.model.type != /obj/item/robot_model)
-		R.hud_used.toggle_show_robot_modules()
-		return 1
-	R.pick_model()
+	var/list/modifiers = params2list(params)
+	if(robot_owner.module_active && !LAZYACCESS(modifiers, RIGHT_CLICK) && !.)
+		robot_owner.uneq_active()
+		return
+
+	//observers can look at borg's inventories, so we ignore parent return value here, unlike everywhere else.
+	if(usr.active_storage == robot_owner.model.atom_storage)
+		robot_owner.model.atom_storage.hide_contents(usr)
+	else
+		robot_owner.model.atom_storage.open_storage(usr)
+	return TRUE
 
 /atom/movable/screen/robot/module1
 	name = "module1"
@@ -58,16 +70,6 @@
 	var/mob/living/silicon/robot/R = usr
 	R.radio.interact(R)
 
-/atom/movable/screen/robot/store
-	name = "store"
-	icon_state = "store"
-
-/atom/movable/screen/robot/store/Click()
-	if(..())
-		return
-	var/mob/living/silicon/robot/R = usr
-	R.uneq_active()
-
 /datum/hud/robot
 	ui_style = 'icons/hud/screen_cyborg.dmi'
 
@@ -79,17 +81,20 @@
 
 // Language
 	using = new/atom/movable/screen/language_menu(null, src)
+	using.icon = ui_style
 	using.screen_loc = ui_borg_language_menu
 	static_inventory += using
 
 // Navigation
 	using = new /atom/movable/screen/navigate(null, src)
+	using.icon = ui_style
 	using.screen_loc = ui_borg_navigate_menu
 	static_inventory += using
 
-// Z-level floor change
-	using = new /atom/movable/screen/floor_menu(null, src)
-	using.screen_loc = ui_borg_floor_menu
+// Memories
+	using = new /atom/movable/screen/memories(null, src)
+	using.icon = ui_style
+	using.screen_loc = ui_borg_memories_menu
 	static_inventory += using
 
 //Radio
@@ -146,8 +151,13 @@
 	//Combat Mode
 	action_intent = new /atom/movable/screen/combattoggle/robot(null, src)
 	action_intent.icon = ui_style
-	action_intent.screen_loc = ui_combat_toggle
+	action_intent.screen_loc = ui_borg_intents
 	static_inventory += action_intent
+
+	floor_change = new /atom/movable/screen/floor_changer(null, src)
+	floor_change.icon = ui_style
+	floor_change.screen_loc = ui_borg_floor_changer
+	static_inventory += floor_change
 
 //Health
 	healths = new /atom/movable/screen/healths/robot(null, src)
@@ -155,12 +165,9 @@
 
 //Installed Module
 	robit.hands = new /atom/movable/screen/robot/module(null, src)
+	robit.hands.icon_state = robit.model ? robit.model.model_select_icon : "nomod"
 	robit.hands.screen_loc = ui_borg_module
 	static_inventory += robit.hands
-
-//Store
-	module_store_icon = new /atom/movable/screen/robot/store(null, src)
-	module_store_icon.screen_loc = ui_borg_store
 
 	pull_icon = new /atom/movable/screen/pull(null, src)
 	pull_icon.icon = 'icons/hud/screen_cyborg.dmi'
@@ -172,72 +179,6 @@
 	zone_select = new /atom/movable/screen/zone_sel/robot(null, src)
 	zone_select.update_appearance()
 	static_inventory += zone_select
-
-
-/datum/hud/proc/toggle_show_robot_modules()
-	if(!iscyborg(mymob))
-		return
-
-	var/mob/living/silicon/robot/R = mymob
-
-	R.shown_robot_modules = !R.shown_robot_modules
-	update_robot_modules_display()
-
-/datum/hud/proc/update_robot_modules_display(mob/viewer)
-	if(!iscyborg(mymob))
-		return
-
-	var/mob/living/silicon/robot/R = mymob
-
-	var/mob/screenmob = viewer || R
-
-	if(!R.model)
-		return
-
-	if(!R.client)
-		return
-
-	if(R.shown_robot_modules && screenmob.hud_used.hud_shown)
-		//Modules display is shown
-		screenmob.client.screen += module_store_icon //"store" icon
-
-		if(!R.model.modules)
-			to_chat(usr, span_warning("Selected model has no modules to select!"))
-			return
-
-		if(!R.robot_modules_background)
-			return
-
-		var/display_rows = max(CEILING(length(R.model.get_inactive_modules()) / 8, 1),1)
-		R.robot_modules_background.screen_loc = "CENTER-4:16,SOUTH+1:7 to CENTER+3:16,SOUTH+[display_rows]:7"
-		screenmob.client.screen += R.robot_modules_background
-
-		var/x = -4 //Start at CENTER-4,SOUTH+1
-		var/y = 1
-
-		for(var/atom/movable/A in R.model.get_inactive_modules())
-			//Module is not currently active
-			screenmob.client.screen += A
-			if(x < 0)
-				A.screen_loc = "CENTER[x]:16,SOUTH+[y]:7"
-			else
-				A.screen_loc = "CENTER+[x]:16,SOUTH+[y]:7"
-			SET_PLANE_IMPLICIT(A, ABOVE_HUD_PLANE)
-
-			x++
-			if(x == 4)
-				x = -4
-				y++
-
-	else
-		//Modules display is hidden
-		screenmob.client.screen -= module_store_icon //"store" icon
-
-		for(var/atom/A in R.model.get_inactive_modules())
-			//Module is not currently active
-			screenmob.client.screen -= A
-		R.shown_robot_modules = 0
-		screenmob.client.screen -= R.robot_modules_background
 
 /datum/hud/robot/persistent_inventory_update(mob/viewer)
 	if(!mymob)

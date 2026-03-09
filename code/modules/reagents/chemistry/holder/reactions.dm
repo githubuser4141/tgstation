@@ -120,9 +120,6 @@
 	else
 		is_reacting = FALSE
 
-	if(.)
-		SEND_SIGNAL(src, COMSIG_REAGENTS_REACTED, .)
-
 	TEST_ONLY_ASSERT(!. || MC_RUNNING(), "We reacted during subsystem init, that shouldn't be happening!")
 
 /**
@@ -183,7 +180,7 @@
 	if(num_reactions)
 		SEND_SIGNAL(src, COMSIG_REAGENTS_REACTION_STEP, num_reactions, seconds_per_tick)
 
-	if(length(mix_message)) //This is only at the end
+	if(length(mix_message) && !HAS_TRAIT(my_atom, TRAIT_SILENT_REACTIONS)) //This is only at the end
 		my_atom.audible_message(span_notice("[icon2html(my_atom, viewers(DEFAULT_MESSAGE_RANGE, src))] [mix_message.Join()]"))
 
 	if(!LAZYLEN(reaction_list))
@@ -210,12 +207,15 @@
 		stack_trace("The equilibrium datum currently processing in this reagents datum had a desynced holder to the ending reaction. src holder:[my_atom] | equilibrium holder:[equilibrium.holder.my_atom] || src type:[my_atom.type] | equilibrium holder:[equilibrium.holder.my_atom.type]")
 		LAZYREMOVE(reaction_list, equilibrium)
 
-	var/reaction_message = equilibrium.reaction.mix_message
-	if(equilibrium.reaction.mix_sound)
-		playsound(get_turf(my_atom), equilibrium.reaction.mix_sound, 80, TRUE)
+	var/reaction_message = null
+
+	if (!isnull(my_atom) && !HAS_TRAIT(my_atom, TRAIT_SILENT_REACTIONS))
+		reaction_message = equilibrium.reaction.mix_message
+		if(equilibrium.reaction.mix_sound)
+			playsound(get_turf(my_atom), equilibrium.reaction.mix_sound, 80, TRUE)
 	qdel(equilibrium)
 	update_total()
-	SEND_SIGNAL(src, COMSIG_REAGENTS_REACTED, .)
+
 	return reaction_message
 
 /*
@@ -237,7 +237,7 @@
 	var/list/mix_message = list()
 	for(var/datum/equilibrium/equilibrium as anything in reaction_list)
 		mix_message += end_reaction(equilibrium)
-	if(my_atom && length(mix_message))
+	if(!QDELETED(my_atom) && length(mix_message))
 		my_atom.audible_message(span_notice("[icon2html(my_atom, viewers(DEFAULT_MESSAGE_RANGE, src))] [mix_message.Join()]"))
 	finish_reacting()
 
@@ -256,37 +256,9 @@
 			if(result == reagent.type)
 				mix_message += end_reaction(equilibrium)
 				any_stopped = TRUE
-	if(length(mix_message))
+	if(length(mix_message) && !HAS_TRAIT(my_atom, TRAIT_SILENT_REACTIONS))
 		my_atom.audible_message(span_notice("[icon2html(my_atom, viewers(DEFAULT_MESSAGE_RANGE, src))][mix_message.Join()]"))
 	return any_stopped
-
-/*
-* Transfers the reaction_list to a new reagents datum
-*
-* Arguments:
-* * target - the datum/reagents that this src is being transferred into
-*/
-/datum/reagents/proc/transfer_reactions(datum/reagents/target)
-	if(QDELETED(target))
-		CRASH("transfer_reactions() had a [target] ([target.type]) passed to it when it was set to qdel, or it isn't a reagents datum.")
-	if(!reaction_list)
-		return
-	for(var/datum/equilibrium/reaction_source as anything in reaction_list)
-		var/exists = FALSE
-		for(var/datum/equilibrium/reaction_target as anything in target.reaction_list) //Don't add duplicates
-			if(reaction_source.reaction.type == reaction_target.reaction.type)
-				exists = TRUE
-		if(exists)
-			continue
-		if(!reaction_source.holder)
-			CRASH("reaction_source is missing a holder in transfer_reactions()!")
-
-		var/datum/equilibrium/new_E = new (reaction_source.reaction, target)//addition to reaction_list is done in new()
-		if(new_E.to_delete)//failed startup checks
-			qdel(new_E)
-
-	target.previous_reagent_list = LAZYLISTDUPLICATE(previous_reagent_list)
-	target.is_reacting = is_reacting
 
 /**
  * Old reaction mechanics, edited to work on one only
@@ -326,7 +298,7 @@
 	var/list/seen = viewers(4, get_turf(my_atom))
 	var/iconhtml = icon2html(cached_my_atom, seen)
 	if(cached_my_atom)
-		if(!ismob(cached_my_atom)) // No bubbling mobs
+		if(!ismob(cached_my_atom) && !HAS_TRAIT(my_atom, TRAIT_SILENT_REACTIONS)) // No bubbling mobs
 			if(selected_reaction.mix_sound)
 				playsound(get_turf(cached_my_atom), selected_reaction.mix_sound, 80, TRUE)
 			my_atom.audible_message(span_notice("[iconhtml] [selected_reaction.mix_message]"))
@@ -339,6 +311,7 @@
 				my_atom.visible_message(span_notice("[iconhtml] \The [my_atom]'s power is consumed in the reaction."))
 				extract.name = "used slime extract"
 				extract.desc = "This extract has been used up."
+				extract.can_grind = FALSE
 
 	//finish the reaction
 	selected_reaction.on_reaction(src, null, multiplier)

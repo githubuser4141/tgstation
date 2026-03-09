@@ -33,7 +33,7 @@ Slimecrossing Items
 		if(QDELETED(saved_part.old_part))
 			saved_part.old_part = new saved_part.bodypart_type
 		if(!already || already != saved_part.old_part)
-			saved_part.old_part.replace_limb(src, TRUE)
+			saved_part.old_part.replace_limb(src)
 		saved_part.old_part.heal_damage(INFINITY, INFINITY, null, FALSE)
 		saved_part.old_part.receive_damage(saved_part.brute_dam, saved_part.burn_dam, wound_bonus=CANT_WOUND)
 		dont_chop[zone] = TRUE
@@ -52,11 +52,10 @@ Slimecrossing Items
 		ret[part.body_zone] = saved_part
 	return ret
 
-/obj/item/camera/rewind/afterattack(atom/target, mob/user, flag)
-	. |= AFTERATTACK_PROCESSED_ITEM
-
-	if(!on || !pictures_left || !isturf(target.loc))
-		return .
+/obj/item/camera/rewind/photo_taken(atom/target, mob/user)
+	. = ..()
+	if(!.)
+		return
 
 	if(user == target)
 		to_chat(user, span_notice("You take a selfie!"))
@@ -66,9 +65,6 @@ Slimecrossing Items
 	to_chat(target, span_boldnotice("You'll remember this moment forever!"))
 
 	target.AddComponent(/datum/component/dejavu, 2)
-	return . | ..()
-
-
 
 //Timefreeze camera - Old Burning Sepia result. Kept in case admins want to spawn it
 /obj/item/camera/timefreeze
@@ -77,20 +73,18 @@ Slimecrossing Items
 	pictures_left = 1
 	pictures_max = 1
 
-/obj/item/camera/timefreeze/afterattack(atom/target, mob/user, flag)
-	. |= AFTERATTACK_PROCESSED_ITEM
-
-	if(!on || !pictures_left || !isturf(target.loc))
-		return .
+/obj/item/camera/timefreeze/photo_taken(atom/target, mob/user)
+	. = ..()
+	if(!.)
+		return
 	new /obj/effect/timestop(get_turf(target), 2, 50, list(user))
-	return . | ..()
 
 //Hypercharged slime cell - Charged Yellow
-/obj/item/stock_parts/cell/high/slime_hypercharged
+/obj/item/stock_parts/power_store/cell/high/slime_hypercharged
 	name = "hypercharged slime core"
 	desc = "A charged yellow slime extract, infused with plasma. It almost hurts to touch."
 	icon = 'icons/mob/simple/slimes.dmi'
-	icon_state = "yellow slime extract"
+	icon_state = "yellow-core"
 	rating = 7
 	custom_materials = null
 	maxcharge = 50 * STANDARD_CELL_CHARGE
@@ -160,12 +154,12 @@ Slimecrossing Items
 
 /obj/structure/ice_stasis/Initialize(mapload)
 	. = ..()
-	playsound(src, 'sound/magic/ethereal_exit.ogg', 50, TRUE)
+	playsound(src, 'sound/effects/magic/ethereal_exit.ogg', 50, TRUE)
 
 /obj/structure/ice_stasis/Destroy()
 	for(var/atom/movable/M in contents)
 		M.forceMove(loc)
-	playsound(src, 'sound/effects/glassbr3.ogg', 50, TRUE)
+	playsound(src, 'sound/effects/glass/glassbr3.ogg', 50, TRUE)
 	return ..()
 
 //Gold capture device - Chilling Gold
@@ -202,7 +196,7 @@ Slimecrossing Items
 		else
 			to_chat(user, span_warning("[pokemon] refused to enter the device."))
 			return
-	else if(!(FACTION_NEUTRAL in pokemon.faction))
+	else if(!pokemon.has_faction(FACTION_NEUTRAL))
 		to_chat(user, span_warning("This creature is too aggressive to capture."))
 		return
 	to_chat(user, span_notice("You store [pokemon] in the capture device."))

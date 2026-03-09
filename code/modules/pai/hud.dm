@@ -2,10 +2,11 @@
 
 /atom/movable/screen/pai
 	icon = 'icons/hud/screen_pai.dmi'
+	mouse_over_pointer = MOUSE_HAND_POINTER
 	var/required_software
 
 /atom/movable/screen/pai/Click()
-	if(isobserver(usr) || usr.incapacitated())
+	if(isobserver(usr) || usr.incapacitated)
 		return FALSE
 	var/mob/living/silicon/pai/user = usr
 	if(required_software && !user.installed_software.Find(required_software))
@@ -176,6 +177,9 @@
 	var/mob/living/silicon/pai/pAI = usr
 	pAI.radio.interact(usr)
 
+/datum/hud/pai
+	ui_style = 'icons/hud/screen_pai.dmi'
+
 /datum/hud/pai/New(mob/living/silicon/pai/owner)
 	..()
 	var/atom/movable/screen/using
@@ -212,11 +216,19 @@
 
 // Language menu
 	using = new /atom/movable/screen/language_menu(null, src)
+	using.icon = ui_style
 	using.screen_loc = ui_pai_language_menu
+	static_inventory += using
+
+// Memories
+	using = new /atom/movable/screen/memories(null, src)
+	using.icon = ui_style
+	using.screen_loc = ui_pai_memories_menu
 	static_inventory += using
 
 // Navigation
 	using = new /atom/movable/screen/navigate(null, src)
+	using.icon = ui_style
 	using.screen_loc = ui_pai_navigate_menu
 	static_inventory += using
 

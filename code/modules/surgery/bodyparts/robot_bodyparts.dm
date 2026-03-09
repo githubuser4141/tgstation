@@ -1,7 +1,7 @@
 
 #define ROBOTIC_LIGHT_BRUTE_MSG "marred"
 #define ROBOTIC_MEDIUM_BRUTE_MSG "dented"
-#define ROBOTIC_HEAVY_BRUTE_MSG "falling apart"
+#define ROBOTIC_HEAVY_BRUTE_MSG "like its falling apart"
 
 #define ROBOTIC_LIGHT_BURN_MSG "scorched"
 #define ROBOTIC_MEDIUM_BURN_MSG "charred"
@@ -44,6 +44,7 @@
 	damage_examines = list(BRUTE = ROBOTIC_BRUTE_EXAMINE_TEXT, BURN = ROBOTIC_BURN_EXAMINE_TEXT)
 	disabling_threshold_percentage = 1
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
 /obj/item/bodypart/arm/right/robot
 	name = "cyborg right arm"
@@ -79,6 +80,7 @@
 
 	damage_examines = list(BRUTE = ROBOTIC_BRUTE_EXAMINE_TEXT, BURN = ROBOTIC_BURN_EXAMINE_TEXT)
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
 /obj/item/bodypart/leg/left/robot
 	name = "cyborg left leg"
@@ -114,8 +116,9 @@
 
 	damage_examines = list(BRUTE = ROBOTIC_BRUTE_EXAMINE_TEXT, BURN = ROBOTIC_BURN_EXAMINE_TEXT)
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
-/obj/item/bodypart/leg/left/robot/emp_act(severity)
+/obj/item/bodypart/leg/left/robot/emp_effect(severity, protection)
 	. = ..()
 	if(!. || isnull(owner))
 		return
@@ -124,9 +127,10 @@
 	if (severity == EMP_HEAVY)
 		knockdown_time *= 2
 	owner.Knockdown(knockdown_time)
-	if(owner.incapacitated(IGNORE_RESTRAINTS|IGNORE_GRAB)) // So the message isn't duplicated. If they were stunned beforehand by something else, then the message not showing makes more sense anyways.
+	if(INCAPACITATED_IGNORING(owner, INCAPABLE_RESTRAINTS|INCAPABLE_GRAB)) // So the message isn't duplicated. If they were stunned beforehand by something else, then the message not showing makes more sense anyways.
 		return
 	to_chat(owner, span_danger("As your [plaintext_zone] unexpectedly malfunctions, it causes you to fall to the ground!"))
+	return
 
 /obj/item/bodypart/leg/right/robot
 	name = "cyborg right leg"
@@ -162,8 +166,9 @@
 
 	damage_examines = list(BRUTE = ROBOTIC_BRUTE_EXAMINE_TEXT, BURN = ROBOTIC_BURN_EXAMINE_TEXT)
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
-/obj/item/bodypart/leg/right/robot/emp_act(severity)
+/obj/item/bodypart/leg/right/robot/emp_effect(severity, protection)
 	. = ..()
 	if(!. || isnull(owner))
 		return
@@ -172,9 +177,10 @@
 	if (severity == EMP_HEAVY)
 		knockdown_time *= 2
 	owner.Knockdown(knockdown_time)
-	if(owner.incapacitated(IGNORE_RESTRAINTS|IGNORE_GRAB)) // So the message isn't duplicated. If they were stunned beforehand by something else, then the message not showing makes more sense anyways.
+	if(INCAPACITATED_IGNORING(owner, INCAPABLE_RESTRAINTS|INCAPABLE_GRAB)) // So the message isn't duplicated. If they were stunned beforehand by something else, then the message not showing makes more sense anyways.
 		return
 	to_chat(owner, span_danger("As your [plaintext_zone] unexpectedly malfunctions, it causes you to fall to the ground!"))
+	return
 
 /obj/item/bodypart/chest/robot
 	name = "cyborg torso"
@@ -207,15 +213,16 @@
 
 	damage_examines = list(BRUTE = ROBOTIC_BRUTE_EXAMINE_TEXT, BURN = ROBOTIC_BURN_EXAMINE_TEXT)
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
 	robotic_emp_paralyze_damage_percent_threshold = 0.6
 
-	wing_types = list(/obj/item/organ/external/wings/functional/robotic)
+	wing_types = list(/obj/item/organ/wings/functional/robotic)
 
 	var/wired = FALSE
-	var/obj/item/stock_parts/cell/cell = null
+	var/obj/item/stock_parts/power_store/cell = null
 
-/obj/item/bodypart/chest/robot/emp_act(severity)
+/obj/item/bodypart/chest/robot/emp_effect(severity, protection)
 	. = ..()
 	if(!. || isnull(owner))
 		return
@@ -236,6 +243,7 @@
 		to_chat(owner, span_danger("Your [plaintext_zone]'s logic boards temporarily become unresponsive!"))
 		owner.Stun(stun_time)
 	owner.Shake(pixelshiftx = shift_x, pixelshifty = shift_y, duration = shake_duration)
+	return
 
 /obj/item/bodypart/chest/robot/get_cell()
 	return cell
@@ -287,8 +295,8 @@
 			TRAIT_RESISTHIGHPRESSURE,
 			), AUGMENTATION_TRAIT)
 
-/obj/item/bodypart/chest/robot/attackby(obj/item/weapon, mob/user, params)
-	if(istype(weapon, /obj/item/stock_parts/cell))
+/obj/item/bodypart/chest/robot/attackby(obj/item/weapon, mob/user, list/modifiers, list/attack_modifiers)
+	if(istype(weapon, /obj/item/stock_parts/power_store/cell))
 		if(cell)
 			to_chat(user, span_warning("You have already inserted a cell!"))
 			return
@@ -384,13 +392,14 @@
 
 	head_flags = HEAD_EYESPRITES
 	bodypart_flags = BODYPART_UNHUSKABLE
+	butcher_replacement = null
 
 	var/obj/item/assembly/flash/handheld/flash1 = null
 	var/obj/item/assembly/flash/handheld/flash2 = null
 
 #define EMP_GLITCH "EMP_GLITCH"
 
-/obj/item/bodypart/head/robot/emp_act(severity)
+/obj/item/bodypart/head/robot/emp_effect(severity, protection)
 	. = ..()
 	if(!. || isnull(owner))
 		return
@@ -401,9 +410,7 @@
 	if (severity == EMP_HEAVY)
 		glitch_duration *= 2
 
-	owner.add_client_colour(/datum/client_colour/malfunction)
-
-	addtimer(CALLBACK(owner, TYPE_PROC_REF(/mob/living/carbon/human, remove_client_colour), /datum/client_colour/malfunction), glitch_duration)
+	QDEL_IN(owner.add_client_colour(/datum/client_colour/malfunction, HEAD_TRAIT), glitch_duration)
 
 #undef EMP_GLITCH
 
@@ -433,7 +440,7 @@
 			. += "It has two eye sockets occupied by flashes."
 		. += span_notice("You can remove the seated flash[single_flash ? "":"es"] with a <b>crowbar</b>.")
 
-/obj/item/bodypart/head/robot/attackby(obj/item/weapon, mob/user, params)
+/obj/item/bodypart/head/robot/attackby(obj/item/weapon, mob/user, list/modifiers, list/attack_modifiers)
 	if(istype(weapon, /obj/item/assembly/flash/handheld))
 		var/obj/item/assembly/flash/handheld/flash = weapon
 		if(flash1 && flash2)
@@ -546,6 +553,7 @@
 	unarmed_effectiveness = 20
 	max_damage = LIMB_MAX_HP_ADVANCED
 	body_damage_coeff = LIMB_BODY_DAMAGE_COEFFICIENT_ADVANCED
+	is_emissive = TRUE
 
 /obj/item/bodypart/arm/right/robot/advanced
 	name = "advanced robotic right arm"
@@ -557,6 +565,7 @@
 	unarmed_effectiveness = 20
 	max_damage = LIMB_MAX_HP_ADVANCED
 	body_damage_coeff = LIMB_BODY_DAMAGE_COEFFICIENT_ADVANCED
+	is_emissive = TRUE
 
 /obj/item/bodypart/leg/left/robot/advanced
 	name = "advanced robotic left leg"
@@ -568,9 +577,10 @@
 	unarmed_effectiveness = 20
 	max_damage = LIMB_MAX_HP_ADVANCED
 	body_damage_coeff = LIMB_BODY_DAMAGE_COEFFICIENT_ADVANCED
+	is_emissive = TRUE
 
 /obj/item/bodypart/leg/right/robot/advanced
-	name = "heavy robotic right leg"
+	name = "advanced robotic right leg"
 	desc = "An advanced cybernetic leg, capable of greater feats of strength and durability."
 	icon_static = 'icons/mob/augmentation/advanced_augments.dmi'
 	icon = 'icons/mob/augmentation/advanced_augments.dmi'
@@ -579,6 +589,7 @@
 	unarmed_effectiveness = 20
 	max_damage = LIMB_MAX_HP_ADVANCED
 	body_damage_coeff = LIMB_BODY_DAMAGE_COEFFICIENT_ADVANCED
+	is_emissive = TRUE
 
 #undef ROBOTIC_LIGHT_BRUTE_MSG
 #undef ROBOTIC_MEDIUM_BRUTE_MSG

@@ -1,8 +1,9 @@
 /atom/movable/screen/ai
 	icon = 'icons/hud/screen_ai.dmi'
+	mouse_over_pointer = MOUSE_HAND_POINTER
 
 /atom/movable/screen/ai/Click()
-	if(isobserver(usr) || usr.incapacitated())
+	if(isobserver(usr) || usr.incapacitated)
 		return TRUE
 
 /atom/movable/screen/ai/aicore
@@ -10,7 +11,7 @@
 	icon_state = "ai_core"
 
 /atom/movable/screen/ai/aicore/Click()
-	if(..())
+	if(isobserver(usr))
 		return
 	var/mob/living/silicon/ai/AI = usr
 	AI.view_core()
@@ -243,7 +244,14 @@
 
 // Language menu
 	using = new /atom/movable/screen/language_menu(null, src)
+	using.icon = ui_style
 	using.screen_loc = ui_ai_language_menu
+	static_inventory += using
+
+// Memories
+	using = new /atom/movable/screen/memories(null, src)
+	using.icon = ui_style
+	using.screen_loc = ui_ai_memories_menu
 	static_inventory += using
 
 // Z-level floor change
@@ -308,7 +316,6 @@
 	using = new /atom/movable/screen/ai/modpc(null, src)
 	using.screen_loc = ui_ai_mod_int
 	static_inventory += using
-	myai.interfaceButton = using
 	var/atom/movable/screen/ai/modpc/tabletbutton = using
 	tabletbutton.robot = myai
 
